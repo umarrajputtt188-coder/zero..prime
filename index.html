@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#10172a">
+  <title>Zreo.Prime | Account Portal</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #0b1020;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px;
+      background: #121a30;
+      border-bottom: 1px solid #293650;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      color: #70b4ff;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    main {
+      width: min(92%, 480px);
+      margin: 45px auto;
+    }
+
+    .card {
+      background: #151e33;
+      padding: 25px;
+      border-radius: 16px;
+      border: 1px solid #293650;
+      margin-bottom: 20px;
+    }
+
+    h1, h2 {
+      margin-bottom: 15px;
+    }
+
+    p {
+      color: #c3cde0;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      margin: 12px 0;
+      border: 1px solid #354563;
+      border-radius: 8px;
+      background: #0b1020;
+      color: #fff;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #367bf5;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #293650;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .switch {
+      color: #70b4ff;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    #dashboard {
+      display: none;
+    }
+
+    #message {
+      margin-top: 15px;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #8493ad;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="logo">Zreo.Prime</div>
+  </header>
+
+  <main>
+    <section class="card" id="welcome">
+      <h1>Welcome to Zreo.Prime</h1>
+      <p>
+        Create your account or log in to access your personal dashboard.
+      </p>
+    </section>
+
+    <section class="card" id="authCard">
+      <h2 id="formTitle">Create Account</h2>
+
+      <form id="authForm">
+        <input
+          id="email"
+          type="email"
+          placeholder="Email address"
+          autocomplete="email"
+          maxlength="254"
+          required
+        >
+
+        <input
+          id="password"
+          type="password"
+          placeholder="Password (at least 8 characters)"
+          autocomplete="new-password"
+          minlength="8"
+          maxlength="128"
+          required
+        >
+
+        <button id="submitButton" type="submit">
+          Sign Up
+        </button>
+      </form>
+
+      <button class="secondary" id="switchButton" type="button">
+        Already have an account? Login
+      </button>
+
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" id="dashboard">
+      <h2>Your Dashboard</h2>
+      <p>You are successfully logged in.</p>
+      <p id="userEmail"></p>
+
+      <button id="logoutButton" type="button">
+        Log Out
+      </button>
+    </section>
+  </main>
+
+  <footer>
+    © 2026 Zreo.Prime
+  </footer>
+
+  <script type="module">
+    import {
+      initializeApp
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+    // Step 1: Replace these example values with your Firebase config.
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      appId: "YOUR_FIREBASE_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const authCard = document.getElementById("authCard");
+    const dashboard = document.getElementById("dashboard");
+    const form = document.getElementById("authForm");
+    const title = document.getElementById("formTitle");
+    const submitButton = document.getElementById("submitButton");
+    const switchButton = document.getElementById("switchButton");
+    const message = document.getElementById("message");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+
+    let isSignup = true;
+    let busy = false;
+
+    function showMessage(text) {
+      message.textContent = text;
+    }
+
+    function setBusy(value) {
+      busy = value;
+      submitButton.disabled = value;
+      switchButton.disabled = value;
+      submitButton.textContent = value
+        ? "Please wait..."
+        : (isSignup ? "Sign Up" : "Login");
+    }
+
+    function updateForm() {
+      title.textContent = isSignup ? "Create Account" : "Login";
+      submitButton.textContent = isSignup ? "Sign Up" : "Login";
+
+      passwordInput.autocomplete = isSignup
+        ? "new-password"
+        : "current-password";
+
+      switchButton.textContent = isSignup
+        ? "Already have an account? Login"
+        : "New user? Create Account";
+
+      showMessage("");
+    }
+
+    switchButton.addEventListener("click", () => {
+      if (busy) return;
+
+      isSignup = !isSignup;
+      updateForm();
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (busy) return;
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || password.length < 8) {
+        showMessage("Enter a valid email and password of at least 8 characters.");
+        return;
+      }
+
+      setBusy(true);
+      showMessage("");
+
+      try {
+        if (isSignup) {
+          await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+
+          showMessage("Account created successfully.");
+        } else {
+          await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+
+          showMessage("Login successful.");
+        }
+      } catch (error) {
+        const messages = {
+          "auth/email-already-in-use":
+            "This email already has an account. Please log in.",
+          "auth/invalid-email":
+            "Please enter a valid email address.",
+          "auth/weak-password":
+            "Choose a stronger password.",
+          "auth
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCSxVFWFuh16JMKWTzSOPxeZG_SovW0dLE",
+  authDomain: "zreo-prime.firebaseapp.com",
+  projectId: "zreo-prime",
+  storageBucket: "zreo-prime.firebasestorage.app",
+  messagingSenderId: "102740933620",
+  appId: "1:102740933620:web:b098c1f3c7d478f787d7a1",
+  measurementId: "G-86V4YYP6GD"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
